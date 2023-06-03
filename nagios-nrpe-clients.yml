@@ -1,0 +1,128 @@
+---
+#
+# Set up a nagios monitoring client
+#
+
+- hosts: all:!nagiosserver:!desktops
+  become: yes
+
+  tasks:
+    - name: Install and configure FreeBSD nagios client
+      block:
+        - name: Install FreeBSD nrpe agent
+          pkgng:
+            name: nrpe3
+            state: present
+
+        - name: Remove default command checks from nrpe.cfg
+          replace:
+            path: /usr/local/etc/nrpe.cfg
+            regexp: '(^command\[check.*)'
+            replace: '#\1'
+
+        - name: Create custom nrpe.d directory
+          file:
+            path: /usr/local/etc/nrpe.d
+            state: directory
+            mode: 0755
+            owner: root
+            group: wheel
+
+        - name: Set nrpe.cfg to read nrpe.d directory
+          lineinfile:
+            path: /usr/local/etc/nrpe.cfg
+            regexp: '^#?include_dir='
+            line: include_dir=/usr/local/etc/nrpe.d/
+            backrefs: yes
+
+        - name: Copy freebsd-nrpe.cfg config file
+          copy:
+            src: /home/ldaberko/Documents/it/ansible/files/nrpe/freebsd-nrpe.cfg
+            dest: /usr/local/etc/nrpe.d/freebsd-nrpe.cfg
+            owner: root
+            group: wheel
+            mode: 0644
+
+        - name: Enable and start nrpe on FreeBSD
+          service:
+            name: nrpe3
+            enabled: yes
+            state: restarted
+      when: ansible_distribution == 'FreeBSD'
+
+    - name: Install and configure Ubuntu nagios client
+      block:
+        - name: Install Ubuntu nrpe agent
+          apt:
+            name: nagios-nrpe-server
+            state: present
+
+        - name: Remove default command checks from nrpe.cfg
+          replace:
+            path: /etc/nagios/nrpe.cfg
+            regexp: '(^command\[check.*)'
+            replace: '#\1'
+
+        # Since the ubuntu nrpe.cfg file already has an include directory
+        # set up, we don't need to specify one.  Just copy the custom config
+
+        - name: Copy ubuntu-nrpe.cfg config file
+          copy:
+            src: /home/ldaberko/Documents/it/ansible/files/nrpe/ubuntu-nrpe.cfg
+            dest: /etc/nagios/nrpe.d/ubuntu-nrpe.cfg
+            owner: root
+            group: root
+            mode: 0644
+
+        - name: Enable and start nrpe
+          service:
+            name: nagios-nrpe-server
+            enabled: yes
+            state: restarted
+
+      when: ansible_distribution == 'Ubuntu'
+
+# Install special nagios monitoring for backuppc
+
+- hosts: backuppc4
+  become: yes
+
+  tasks:
+    - name: Copy nrpe config file for backuppc
+      copy:
+        src: /home/ldaberko/Documents/it/ansible/files/backuppc/nrpe/nrpe-backuppc.cfg
+        dest: /usr/local/etc/nrpe.d/nrpe-backuppc.cfg
+        owner: root
+        group: wheel
+        mode: 0644
+
+    - name: Copy sudoers file to allow check permissions
+      copy:
+        src: /home/ldaberko/Documents/it/ansible/files/backuppc/nrpe/sudoers-nrpe
+        dest: /usr/local/etc/sudoers.d/sudoers-nrpe
+        owner: root
+        group: wheel
+        mode: 0644
+
+    - name: Reload nrpe to reread changes
+      service:
+        name: nrpe3
+        state: reloaded
+
+# Custom tweaks to monitoring settings.
+
+- hosts: 192.168.1.6
+  become: yes
+
+  tasks:
+    - name: Bump up process count
+      lineinfile:
+        name: /etc/nagios/nrpe.d/ubuntu-nrpe.cfg
+        regex: '^(command\[check_total_procs\]=/usr/lib/nagios/plugins/check_procs).*'
+        line: \1 -w 250 -c 300
+        backrefs: yes
+
+    - name: Reload nrpe to reread changes
+      service:
+        name: nagios-nrpe-server
+        state: reloaded
