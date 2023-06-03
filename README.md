@@ -1,2 +1,4 @@
 # ansible
-Ansible files for home network
+Ansible files for my network.
+
+These are ansible configuration and playbook files that I use on my systems.  My goals are to be able to set up different *nix OS to do the same end tasks for consistency.
