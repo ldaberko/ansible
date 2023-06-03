@@ -1,0 +1,61 @@
+---
+#
+# Update operating systems and packages.
+#
+
+# FreeBSD Systems
+- hosts: all
+  become: yes
+
+  tasks:
+    - name: Update FreeBSD system and packages
+      block:
+        - name: Fetch any new FreeBSD updates
+          shell: freebsd-update --not-running-from-cron fetch
+          register: result_update
+          changed_when: "'No updates needed' not in result_update.stdout"
+
+#       - debug: var=result_update
+#       when: result_update.changed
+
+        - name: Install FreeBSD updates
+          shell: freebsd-update install
+          when: result_update.changed
+          register: result_update_install
+
+#       - debug: var=result_update_install
+#         when: result_update_install.changed
+
+        - name: Upgrade FreeBSD packages
+          shell: pkg upgrade -y
+          register: result_pkg
+          changed_when: "'Your packages are up to date' not in result_pkg.stdout"
+
+#       - debug: var=result_pkg
+#         when: result_pkg.changed
+      
+      when: ansible_distribution == "FreeBSD"
+
+# Update a debian based OS and packages .
+#
+- hosts: all
+  become: yes
+
+  tasks:
+    - name: Update Debian based systems and packages
+      block:
+        - name: Update repositories
+          apt:
+            update_cache: yes
+
+        - name: Upgrade all packages to the latest version
+          apt:
+            upgrade: dist
+
+        - name: Clean up via autoclean and autoremove
+          apt:
+            autoclean: yes
+            autoremove: yes
+
+      when: (ansible_distribution == "Debian") or (ansible_distribution == "Ubuntu")
+        
