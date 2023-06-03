@@ -1,0 +1,67 @@
+---
+#
+# Set up a gmail relay server
+#
+
+- hosts: mailrelay
+  become: yes
+
+  tasks:
+    - name: Configure gmail relay on Ubuntu
+      # Ubunut already has postfix installed by default so we'll use it
+      # Using this as a guideline 
+      # https://www.fosstechnix.com/how-to-configure-postfix-with-gmail-on-ubuntu/
+      block:
+        - name: Set relayhost
+          lineinfile:
+            path: /etc/postfix/main.cf
+            regexp: '^relayhost'
+            line: relayhost = [smtp.gmail.com]:587
+
+        - name: Enable SASL authentication
+          lineinfile:
+            path: /etc/postfix/main.cf
+            regexp: '^smtp_sasl_auth_enable'
+            line: smtp_sasl_auth_enable = yes
+
+        - name: Disallow anonymous auth
+          lineinfile:
+            path: /etc/postfix/main.cf
+            regexp: '^smtp_sasl_security_options'
+            line: smtp_sasl_security_options = noanonymous
+
+        - name: Set location of sasl_passwd
+          lineinfile:
+            path: /etc/postfix/main.cf
+            regexp: '^smtp_sasl_password_maps'
+            line: smtp_sasl_password_maps = hash:/etc/postfix/sasl/sasl_passwd
+
+        - name: Enable smtp STARTTLS
+          lineinfile:
+            path: /etc/postfix/main.cf
+            regexp: '^smtp_tls_security_level'
+            line: smtp_tls_security_level = encrypt
+
+        - name: Enable smtpd STARTTLS
+          lineinfile:
+            path: /etc/postfix/main.cf
+            regexp: '^smtpd_tls_security_level'
+            line: smtpd_tls_security_level = encrypt
+
+        - name: Copy sasl_passwd file
+          copy:
+            src: files/gmail/postfix/sasl_passwd
+            dest: /etc/postfix/sasl/sasl_passwd
+            owner: root
+            group: root
+            mode: '0600'
+
+        - name: Copy sasl_passwd.db file
+          copy:
+            src: files/gmail/postfix/sasl_passwd.db
+            dest: /etc/postfix/sasl/sasl_passwd.db
+            owner: root
+            group: root
+            mode: '0600'
+
+      when: ansible_distribution == 'Ubuntu'
