@@ -31,7 +31,8 @@
             name: bsd-mailx
             state: present
 
-      when: ansible_distribution == 'Ubuntu'
+      when: (ansible_facts['distribution'] == 'Ubuntu') or 
+        (ansible_facts['distribution'] == 'Debian')
 
     - name: Configure gmail relay on FreeBSD
       # We need to disable default sendmail on FreeBSD
