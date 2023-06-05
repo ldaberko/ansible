@@ -4,83 +4,42 @@
 #
 
 - hosts: nagiosserver
-  become: yes
+  become: true
 
   tasks:
+    - name: Gather the package facts
+      ansible.builtin.package_facts:
+
     - name: Install nagios server on Ubuntu and Debian
       block:
+
+        - name: Check for msmtp-mta installation
+          ansible.builtin.fail:
+            msg: msmtp-mta package is missing
+          when: '"msmtp-mta" not in ansible_facts.packages'
+
+        - name: Check for bsd-mailx installation
+          ansible.builtin.fail:
+            msg: bsd-mailx package is missing
+          when: '"bsd-mailx" not in ansible_facts.packages'
+
         - name: Install nagios packages
-          apt:
-            update_cache: yes
-            name: 
+          ansible.builtin.apt:
+            update_cache: true
+            name:
               - nagios4
               - nagios-nrpe-plugin
             state: present
 
         - name: Enable cgi module for Apache2
-          apache2_module:
+          community.general.apache2_module:
             name: cgi
             state: present
 
         - name: Restart apache for cgi module
-          service:
+          ansible.builtin.service:
             name: apache2
             state: restarted
-      
-      when: ansible_distribution == 'Ubuntu' or ansible_distribution == 'Debian'
 
-    - name: Configure gmail relay on Ubuntu
-      block:
-        - name: Set relayhost
-          lineinfile:
-            path: /etc/postfix/main.cf
-            regexp: '^relayhost'
-            line: relayhost = [smtp.gmail.com]:587
-
-        - name: Enable SASL authentication
-          lineinfile:
-            path: /etc/postfix/main.cf
-            regexp: '^smtp_sasl_auth_enable'
-            line: smtp_sasl_auth_enable = yes
-
-        - name: Disallow anonymous auth
-          lineinfile:
-            path: /etc/postfix/main.cf
-            regexp: '^smtp_sasl_security_options'
-            line: smtp_sasl_security_options = noanonymous
-
-        - name: Set location of sasl_passwd
-          lineinfile:
-            path: /etc/postfix/main.cf
-            regexp: '^smtp_sasl_password_maps'
-            line: smtp_sasl_password_maps = hash:/etc/postfix/sasl/sasl_passwd
-
-        - name: Enable smtp STARTTLS
-          lineinfile:
-            path: /etc/postfix/main.cf
-            regexp: '^smtp_tls_security_level'
-            line: smtp_tls_security_level = encrypt
-
-        - name: Enable smtpd STARTTLS
-          lineinfile:
-            path: /etc/postfix/main.cf
-            regexp: '^smtpd_tls_security_level'
-            line: smtpd_tls_security_level = encrypt
-
-        - name: Copy sasl_passwd file
-          copy:
-            src: /home/ldaberko/Documents/it/ansible/files/gmail/postfix/sasl_passwd
-            dest: /etc/postfix/sasl/sasl_passwd
-            owner: root
-            group: root
-            mode: '0600'
-
-        - name: Copy sasl_passwd.db file
-          copy:
-            src: /home/ldaberko/Documents/it/ansible/files/gmail/postfix/sasl_passwd.db
-            dest: /etc/postfix/sasl/sasl_passwd.db
-            owner: root
-            group: root
-            mode: '0600'
-
-      when: ansible_distribution == 'Ubuntu'
+      when: ansible_facts['distribution'] == 'Ubuntu' or
+        ansible_facts['distribution'] == 'Debian'
