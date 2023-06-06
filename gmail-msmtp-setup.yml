@@ -5,6 +5,7 @@
 # ssmtp isn't actively developed
 # postfix and sendmail is overkill
 #
+# sysrc requires community.general v2.5.9
 
 - hosts: mailrelay
   become: true
